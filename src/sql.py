@@ -83,6 +83,7 @@ def create_systems_table():
                                 "body_id TEXT,"
                                 "system_id TEXT REFERENCES systems(system_id),"
                                 "class TEXT,"
+                                "mass FLOAT,"
                                 "distance FLOAT,"
                                 "PRIMARY KEY (body_id, system_id)"
                                 ");")
@@ -239,7 +240,7 @@ def update_system_row(system_name: str, system_id: int, location: list,
 
 
 # Inserts the specified star information into the database
-def update_star_row(star_name: str, body_id: str, system_id: str, star_class: str = "unknown", distance: float = -1,
+def update_star_row(star_name: str, body_id: str, system_id: str, star_class: str = "unknown", mass: float = 0, distance: float = -1,
                     pool: psycopg2.pool.ThreadedConnectionPool = None) -> None:
     if distance is None:
         distance = -1
@@ -251,6 +252,7 @@ def update_star_row(star_name: str, body_id: str, system_id: str, star_class: st
         "body_id": body_id,
         "system_id": system_id,
         "star_class": star_class,
+        "mass": mass,
         "distance": distance,
         "body_type": "Star"
     }
@@ -271,10 +273,12 @@ def update_star_row(star_name: str, body_id: str, system_id: str, star_class: st
                      "%(body_id)s,"
                      "%(system_id)s,"
                      "%(star_class)s,"
+                     "%(mass)s,"
                      "%(distance)s"
                      ") ON CONFLICT (body_id, system_id) DO UPDATE "
                      "SET class = %(star_class)s,"
-                     "distance = %(distance)s "
+                     "distance = %(distance)s,"
+                     "mass = %(mass)s "
                      "WHERE stars.system_id = %(system_id)s AND stars.body_id = %(body_id)s;", parameters)
 
     database.close()

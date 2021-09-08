@@ -110,7 +110,7 @@ def handle_scan_journal(message_json: json) -> tuple[str, list[str], str, str]:
         else:
             return "Ignored", ["Lacking terraform information"], payload["SystemAddress"], payload["BodyID"]
     elif star_class is not None:
-        sql.update_star_row(*body_information, star_class, distance)
+        sql.update_star_row(*body_information, star_class, payload["StellarMass"], distance)
     else:
         return "Ignored", ["Bodies of this type are not logged"], payload["SystemAddress"], ""
 
