@@ -181,7 +181,7 @@ def is_planet_in_database(system_id: str = None, body_id: str = None, planet_nam
 
     database.close()
 
-    return planet is not None
+    return planet[0]
 
 
 # Check to see if the specified station exists in the database
@@ -200,7 +200,7 @@ def is_station_in_database(system_id: str = None, system_name: str = None, stati
 
     database.close()
 
-    return station is not None
+    return station[0]
 
 
 # Returns the id of the specified system
