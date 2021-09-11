@@ -144,12 +144,12 @@ def is_system_in_database(system_id: str = None, system_name: str = None,
                           pool: psycopg2.pool.ThreadedConnectionPool = None) -> bool:
     database = SQLConnection(database_login_info, pool)
 
-    database.execute("SELECT name FROM systems WHERE system_id = %s OR name = %s", (system_id, system_name))
+    database.execute("SELECT EXISTS(SELECT 1 FROM systems WHERE system_id = %s OR name = %s);", (system_id, system_name))
     system = database.cursor.fetchone()
 
     database.close()
 
-    return system is not None
+    return system[0]
 
 
 # Check to see if the specified star exists in the database
@@ -159,13 +159,13 @@ def is_star_in_database(system_id: str = None, body_id: str = None, star_name: s
         "You must specify a valid method of identifying the star"
     database = SQLConnection(database_login_info, pool)
 
-    database.execute("SELECT name FROM stars WHERE (system_id = %s AND body_id = %s OR name = %s)",
+    database.execute("SELECT EXISTS(SELECT 1 FROM stars WHERE (system_id = %s AND body_id = %s OR name = %s));",
                      (system_id, body_id, star_name))
     star = database.cursor.fetchone()
 
     database.close()
 
-    return star is not None
+    return star[0]
 
 
 # Check to see if the specified planet exists in the database
@@ -175,7 +175,7 @@ def is_planet_in_database(system_id: str = None, body_id: str = None, planet_nam
         "You must specify a valid method of identifying the planet"
     database = SQLConnection(database_login_info, pool)
 
-    database.execute("SELECT name FROM planets WHERE system_id = %s AND body_id = %s OR name = %s;",
+    database.execute("SELECT EXISTS(SELECT 1 FROM planets WHERE system_id = %s AND body_id = %s OR name = %s);",
                      (system_id, body_id, planet_name))
     planet = database.cursor.fetchone()
 
@@ -194,7 +194,7 @@ def is_station_in_database(system_id: str = None, system_name: str = None, stati
     if system_id is None:
         system_id = get_system_id(system_name)
 
-    database.execute("SELECT name FROM stations WHERE system_id = %s AND name = %s;",
+    database.execute("SELECT EXISTS(SELECT 1 FROM stations WHERE system_id = %s AND name = %s);",
                      (system_id, station_name))
     station = database.cursor.fetchone()
 
