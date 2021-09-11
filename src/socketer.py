@@ -15,7 +15,7 @@ socket = context.socket(zmq.SUB)
 socket.connect(relay)
 socket.set(zmq.SUBSCRIBE, b"")
 
-system_logging_queue = queue.Queue()
+system_logging_queue = queue.Queue(1000)
 
 
 def handle_task(task_name: str, message_json: json) -> None:
@@ -61,29 +61,30 @@ def log_queue_worker() -> None:
 def run_socket() -> None:
     try:
         while True:
-            message_binary = bytes(socket.recv())
-            message_text = zlib.decompress(message_binary)
-            message_json = json.loads(message_text)
+            if not system_logging_queue.full():
+                message_binary = bytes(socket.recv())
+                message_text = zlib.decompress(message_binary)
+                message_json = json.loads(message_text)
 
-            if message_json["$schemaRef"] == "https://eddn.edcd.io/schemas/commodity/3":
-                # payload = message_json["message"]
-                system_logging_queue.put(("Commodity", message_json))
+                if message_json["$schemaRef"] == "https://eddn.edcd.io/schemas/commodity/3":
+                    # payload = message_json["message"]
+                    system_logging_queue.put(("Commodity", message_json))
 
-                # print(f"Info for {payload['systemName']} successfully queued, {int(system_logging_queue.qsize())} "
-                #       f"items are now queued")
-            elif message_json["$schemaRef"] == "https://eddn.edcd.io/schemas/journal/1":
-                payload = message_json["message"]
+                    # print(f"Info for {payload['systemName']} successfully queued, {int(system_logging_queue.qsize())} "
+                    #       f"items are now queued")
+                elif message_json["$schemaRef"] == "https://eddn.edcd.io/schemas/journal/1":
+                    payload = message_json["message"]
 
-                event_type = payload["event"]
+                    event_type = payload["event"]
 
-                if event_type == "FSDJump":
-                    system_logging_queue.put(("journal/FSDJump", message_json))
-                elif event_type == "Location":
-                    system_logging_queue.put(("journal/Location", message_json))
-                elif event_type == "Scan":
-                    system_logging_queue.put(("journal/Scan", message_json))
+                    if event_type == "FSDJump":
+                        system_logging_queue.put(("journal/FSDJump", message_json))
+                    elif event_type == "Location":
+                        system_logging_queue.put(("journal/Location", message_json))
+                    elif event_type == "Scan":
+                        system_logging_queue.put(("journal/Scan", message_json))
 
-                # print(f"Info for {payload['SystemAddress']} successfully queued, {system_logging_queue.qsize()} "
-                #       f"items are now queued")
+                    # print(f"Info for {payload['SystemAddress']} successfully queued, {system_logging_queue.qsize()} "
+                    #       f"items are now queued")
     except zmq.ZMQError:
         socket.disconnect(relay)
