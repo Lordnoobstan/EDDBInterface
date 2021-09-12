@@ -5,7 +5,14 @@ import json
 from datetime import datetime, timezone
 
 with open("config.json") as config_file:
-    database_login_info = json.load(config_file)["SQL Login"]
+    config_json = json.load(config_file)
+
+    database_login_info = config_json["SQL Login"]
+    queue_worker_thread_count = config_json["Worker Thread Count"]
+
+
+connection_pool = psycopg2.pool.ThreadedConnectionPool(queue_worker_thread_count, queue_worker_thread_count*3,
+                                                       **database_login_info)
 
 
 class SQLConnection:
@@ -94,6 +101,7 @@ def create_systems_table():
                                 "system_id TEXT REFERENCES systems(system_id),"
                                 "class TEXT,"
                                 "terraforming_state TEXT,"
+                                "mass FLOAT,"
                                 "distance FLOAT,"
                                 "is_discovered BOOL,"
                                 "is_mapped BOOL,"
@@ -144,7 +152,8 @@ def is_system_in_database(system_id: str = None, system_name: str = None,
                           pool: psycopg2.pool.ThreadedConnectionPool = None) -> bool:
     database = SQLConnection(database_login_info, pool)
 
-    database.execute("SELECT EXISTS(SELECT 1 FROM systems WHERE system_id = %s OR name = %s);", (system_id, system_name))
+    database.execute("SELECT EXISTS(SELECT 1 FROM systems WHERE system_id = %s OR name = %s);",
+                     (system_id, system_name))
     system = database.cursor.fetchone()
 
     database.close()
@@ -215,7 +224,7 @@ def get_system_id(system_name: str) -> str:
     return system_id
 
 
-# Returns the body if of the specified market
+# Returns the body id of the specified market
 def get_station_body_id(market_id: str) -> str:
     database = SQLConnection(database_login_info)
 
@@ -240,8 +249,8 @@ def update_system_row(system_name: str, system_id: int, location: list,
 
 
 # Inserts the specified star information into the database
-def update_star_row(star_name: str, body_id: str, system_id: str, star_class: str = "unknown", mass: float = 0, distance: float = -1,
-                    pool: psycopg2.pool.ThreadedConnectionPool = None) -> None:
+def update_star_row(star_name: str, body_id: str, system_id: str, star_class: str = "unknown", mass: float = 0,
+                    distance: float = -1,  pool: psycopg2.pool.ThreadedConnectionPool = None) -> None:
     if distance is None:
         distance = -1
 
@@ -286,8 +295,9 @@ def update_star_row(star_name: str, body_id: str, system_id: str, star_class: st
 
 # Inserts the specified planet information into the database
 def update_planet_row(planet_name: str, body_id: str, system_id: str, planet_class: str = "unknown",
-                      terraforming_state: str = "unknown", distance: float = 0, is_discovered: bool = True,
-                      is_mapped: bool = True, pool: psycopg2.pool.ThreadedConnectionPool = None) -> None:
+                      terraforming_state: str = "unknown", mass: float = 0, distance: float = 0,
+                      is_discovered: bool = True, is_mapped: bool = True,
+                      pool: psycopg2.pool.ThreadedConnectionPool = None) -> None:
     if distance is None:
         distance = -1
 
@@ -299,6 +309,7 @@ def update_planet_row(planet_name: str, body_id: str, system_id: str, planet_cla
         "system_id": system_id,
         "planet_class": planet_class,
         "terraforming_state": terraforming_state,
+        "mass": mass,
         "distance": distance,
         "is_discovered": is_discovered,
         "is_mapped": is_mapped,
@@ -322,16 +333,20 @@ def update_planet_row(planet_name: str, body_id: str, system_id: str, planet_cla
                      "%(system_id)s,"
                      "%(planet_class)s,"
                      "%(terraforming_state)s,"
+                     "%(mass)s,"
                      "%(distance)s,"
                      "%(is_discovered)s,"
                      "%(is_mapped)s"
                      ") ON CONFLICT (body_id, system_id) DO UPDATE "
                      "SET class = %(planet_class)s,"
                      "terraforming_state = %(terraforming_state)s,"
+                     "mass = %(mass)s,"
                      "distance = %(distance)s,"
                      "is_discovered = %(is_discovered)s,"
                      "is_mapped = %(is_mapped)s "
                      "WHERE planets.system_id = %(system_id)s AND planets.body_id = %(body_id)s;", parameters)
+
+    database.close()
 
 
 # Inserts the specified station information into the database
@@ -381,6 +396,8 @@ def update_station_row(station_name: str, body_id: str, system_id: str, station_
                      "last_updated = %(last_updated)s "
                      "WHERE stations.station_id = %(station_id)s;", parameters)
 
+    database.close()
+
 
 # Inserts the specified commodity information into the database
 def update_commodity_row(commodity_name: str, commodity_id: str, station_id: str, buy_price: int, sell_price: int,
@@ -421,12 +438,15 @@ def update_commodity_row(commodity_name: str, commodity_id: str, station_id: str
 
 # Inserts the specified information into the logs database
 def insert_log_row(status: str, meta_message: list[str], event_type: str, payload: json, system_of_interest: str,
-                   body_of_interest: str, upload_timestamp: datetime = None):
+                   body_of_interest: str, upload_timestamp: datetime = None,
+                   pool: psycopg2.pool.AbstractConnectionPool = None):
     if not upload_timestamp:
         upload_timestamp = datetime.now(timezone.utc)
 
-    database = SQLConnection(database_login_info)
+    database = SQLConnection(database_login_info, pool)
 
     database.execute("INSERT INTO logs VALUES (%s, %s, %s, %s, %s, %s, %s)",
                      (status, meta_message, event_type, payload, system_of_interest,
                       body_of_interest, upload_timestamp))
+
+    database.close()
