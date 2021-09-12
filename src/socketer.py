@@ -18,7 +18,7 @@ socket = context.socket(zmq.SUB)
 socket.connect(relay)
 socket.set(zmq.SUBSCRIBE, b"")
 
-system_logging_queue = queue.Queue() # 1000)
+system_logging_queue = queue.Queue(2000)
 
 
 def handle_task(task_name: str, message_json: json) -> None:
