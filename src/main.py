@@ -23,10 +23,10 @@ def run():
             "function": run_socket,
             "count": 1
         },
-        {
-            "function": log_queue_worker,
-            "count": queue_worker_thread_count
-        }
+        # {
+        #     "function": log_queue_worker,
+        #     "count": queue_worker_thread_count
+        # }
     ]
 
     create_systems_table()

@@ -1,5 +1,6 @@
 import json
 import queue
+import threading
 import zlib
 import zmq
 
@@ -18,7 +19,7 @@ socket = context.socket(zmq.SUB)
 socket.connect(relay)
 socket.set(zmq.SUBSCRIBE, b"")
 
-system_logging_queue = queue.Queue(2000)
+# system_logging_queue = queue.Queue(2000)
 
 
 def handle_task(task_name: str, message_json: json) -> None:
@@ -70,18 +71,28 @@ def run_socket() -> None:
                 message_text = zlib.decompress(message_binary)
                 message_json = json.loads(message_text)
 
+                message_type = None
+
                 if message_json["$schemaRef"] == "https://eddn.edcd.io/schemas/commodity/3":
-                    system_logging_queue.put(("Commodity", message_json))
+                    message_type = "Commodity"
+                    # system_logging_queue.put(("Commodity", message_json))
                 elif message_json["$schemaRef"] == "https://eddn.edcd.io/schemas/journal/1":
                     payload = message_json["message"]
 
                     event_type = payload["event"]
 
                     if event_type == "FSDJump":
-                        system_logging_queue.put(("journal/FSDJump", message_json))
+                        message_type = "journal/FSDJump"
+                        # system_logging_queue.put(("journal/FSDJump", message_json))
                     elif event_type == "Location":
-                        system_logging_queue.put(("journal/Location", message_json))
+                        message_type = "journal/Location"
+                        # system_logging_queue.put(("journal/Location", message_json))
                     elif event_type == "Scan":
-                        system_logging_queue.put(("journal/Scan", message_json))
+                        message_type = "journal/Scan"
+                        # system_logging_queue.put(("journal/Scan", message_json))
+
+                if message_type is not None:
+                    process = threading.Thread(target=handle_task, args=(message_type, message_json))
+                    process.start()
     except zmq.ZMQError:
         socket.disconnect(relay)
