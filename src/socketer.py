@@ -66,33 +66,32 @@ def log_queue_worker() -> None:
 def run_socket() -> None:
     try:
         while True:
-            if not system_logging_queue.full():
-                message_binary = bytes(socket.recv())
-                message_text = zlib.decompress(message_binary)
-                message_json = json.loads(message_text)
+            message_binary = bytes(socket.recv())
+            message_text = zlib.decompress(message_binary)
+            message_json = json.loads(message_text)
 
-                message_type = None
+            message_type = None
 
-                if message_json["$schemaRef"] == "https://eddn.edcd.io/schemas/commodity/3":
-                    message_type = "Commodity"
-                    # system_logging_queue.put(("Commodity", message_json))
-                elif message_json["$schemaRef"] == "https://eddn.edcd.io/schemas/journal/1":
-                    payload = message_json["message"]
+            if message_json["$schemaRef"] == "https://eddn.edcd.io/schemas/commodity/3":
+                message_type = "Commodity"
+                # system_logging_queue.put(("Commodity", message_json))
+            elif message_json["$schemaRef"] == "https://eddn.edcd.io/schemas/journal/1":
+                payload = message_json["message"]
 
-                    event_type = payload["event"]
+                event_type = payload["event"]
 
-                    if event_type == "FSDJump":
-                        message_type = "journal/FSDJump"
-                        # system_logging_queue.put(("journal/FSDJump", message_json))
-                    elif event_type == "Location":
-                        message_type = "journal/Location"
-                        # system_logging_queue.put(("journal/Location", message_json))
-                    elif event_type == "Scan":
-                        message_type = "journal/Scan"
-                        # system_logging_queue.put(("journal/Scan", message_json))
+                if event_type == "FSDJump":
+                    message_type = "journal/FSDJump"
+                    # system_logging_queue.put(("journal/FSDJump", message_json))
+                elif event_type == "Location":
+                    message_type = "journal/Location"
+                    # system_logging_queue.put(("journal/Location", message_json))
+                elif event_type == "Scan":
+                    message_type = "journal/Scan"
+                    # system_logging_queue.put(("journal/Scan", message_json))
 
-                if message_type is not None:
-                    process = threading.Thread(target=handle_task, args=(message_type, message_json))
-                    process.start()
+            if message_type is not None:
+                process = threading.Thread(target=handle_task, args=(message_type, message_json))
+                process.start()
     except zmq.ZMQError:
         socket.disconnect(relay)
